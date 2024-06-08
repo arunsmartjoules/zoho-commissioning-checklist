@@ -1,7 +1,6 @@
 document.getElementsByClassName("wrapper")[0].style.display = "none";
 ZOHO.CREATOR.init()
     .then(function (data) {
-
         //   
         var queryParams = ZOHO.CREATOR.UTIL.getQueryParams();
         var maintenance_id = queryParams.maintenance_id;
@@ -38,8 +37,8 @@ ZOHO.CREATOR.init()
             const response = await ZOHO.CREATOR.API.getAllRecords(configuration);
             let recordArr = response.data;
             const maintenanceArr = recordArr.reduce((acc, curr) => {
-                if (!acc.includes(curr.Maintenance_ID)) {
-                    acc.push(curr.Maintenance_ID);
+                if (!acc.includes(curr.Task_Type)) {
+                    acc.push(curr.Task_Type);
                 }
                 return acc;
             }, [])
@@ -63,16 +62,10 @@ ZOHO.CREATOR.init()
             }
             const area_list = [];
             for (let j = 0; j < maintenanceArr.length; j++) {
-                mConfig = {
-                    appName: "smart-joules-app",
-                    reportName: "Commissioning_Checklist_Report",
-                    id: maintenanceArr[j]
-                }
-                const m_obj = await ZOHO.CREATOR.API.getRecordById(mConfig);
                 const m_tr = document.createElement("tr");
-                m_tr.innerHTML = `<td colspan="11" class="bg-light text-start fw-bold">${m_obj.data.Title}</td>`;
+                m_tr.innerHTML = `<td colspan="11" class="bg-light text-start fw-bold">${maintenanceArr[j]}</td>`;
                 document.querySelector("#t-body").appendChild(m_tr);
-                const newRecordArr = recordArr.filter(rec => rec.Maintenance_ID == maintenanceArr[j]);
+                const newRecordArr = recordArr.filter(rec => rec.Task_Type == maintenanceArr[j]);
 
                 for (let i = 0; i < newRecordArr.length; i++) {
                     area_list.push(newRecordArr[i].Area);
@@ -81,24 +74,7 @@ ZOHO.CREATOR.init()
                         function escapeDoubleQuotes(str) {
                             return str.replace(/"/g, '\\"');
                         }
-                        const taskChoices = async (taskConfig) => {
-                            taskConfig = {
-                                appName: "smart-joules-app",
-                                reportName: "All_Checklist_Task_Masters",
-                                criteria: `Task_Name == "${escapeDoubleQuotes(newRecordArr[i].Task_Name)}" && Commissioning_Checklist_Master == ${newRecordArr[i].Maintenance}`
-                            }
-                            try {
-                                const task_resp = await ZOHO.CREATOR.API.getAllRecords(taskConfig);
-                                const choices = task_resp.data[0];
-                                return choices.Choices.map(choice => choice.display_value);
-                            }
-                            catch (err) {
-                                // console.log(err);
-                                return [];
-                            }
-                        }
-                        const task_choices = await taskChoices();
-
+                        const task_choices = newRecordArr[i].Choices.map(x => x.display_value);
                         const s_no = i + 1;
                         const tr = document.createElement("tr");
                         tr.className = `table-row`;
@@ -111,10 +87,24 @@ ZOHO.CREATOR.init()
                         </td>
                             <td class='text-nowrap'>${newRecordArr[i].Date_field.substring(0, 6)}</td>
                             <td class='text-start' style='min-width: 200px;'>${newRecordArr[i].Task_Name} ${newRecordArr[i].Audio ? `<span class="fs-6 cursor-pointer" id="audio-${i}"><i class='bi bi-play-fill'></i></span>` : ""}</td>`;
-
                         tr_data += `<td class='d-none'></td>`;
-                        const text_input = `<td id='resp-opt${i}'><input type='text' id='input-reponse${i}' value='${newRecordArr[i].Response}' class='form-control'></td>`;
-                        tr_data = tr_data + text_input;
+                        let select_tag = `<td id='resp-opt${i}' id='select' style='min-width: 150px;'><select class='form-select' id='input-reponse${i}'>
+                        <option value=null ${newRecordArr[i].Response ? '' : 'selected'}>Choose</option>`;
+                     select_tag += (task_choices.includes("Yes") || newRecordArr[i].Task_Name == "Cleaning of Air Filters") ? `<option value='Yes' ${(newRecordArr[i].Response == 'Yes') ? 'selected'  : ''}>Yes</option>` : "";
+                     select_tag += (task_choices.includes("No") || newRecordArr[i].Task_Name == "Cleaning of Air Filters") ? `<option value='No' ${(newRecordArr[i].Response == 'No') ? 'selected'  : ''}>No</option>` : "";
+                     select_tag += task_choices.includes("Done") ? `<option value='Done' ${(newRecordArr[i].Response == 'Done') ? 'selected' : ''}>Done</option>` : "";
+                     select_tag += task_choices.includes("Not Done") ? `<option value='Not Done' ${(newRecordArr[i].Response == 'Not Done') ? 'selected' : ''}>Not Done</option>` : "";
+                     select_tag += task_choices.includes("Okay") ? `<option value='Not Done' ${(newRecordArr[i].Response == 'Okay') ? 'selected' : ''}>Okay</option>` : "";
+                     select_tag += task_choices.includes("Not Okay") ? `<option value='Not Okay' ${(newRecordArr[i].Response == 'Not Okay') ? 'selected' : ''}>Not Okay</option>` : "";
+                     select_tag += task_choices.includes("Electrical") ? `<option value='Electrical' ${(newRecordArr[i].Response == 'Electrical') ? 'selected' : ''}>Electrical</option>` : "";
+                     select_tag += task_choices.includes("Damage") ? `<option value='Damage' ${(newRecordArr[i].Response ==  'Damage') ? 'selected' : ''}>Damage</option>` : "";
+                     select_tag += task_choices.includes("Safety") ? `<option value='Safety' ${(newRecordArr[i].Response == 'Safety') ? 'selected' : ''}>Safety</option>` : "";
+                     select_tag += `</select></td>`;
+                     const num_input = `<td id='resp-opt${i}'><input type='number' id='input-reponse${i}' value='${newRecordArr[i].Response_Amount}' class='form-control'></td>`;
+                     const text_input = `<td id='resp-opt${i}'><input type='text' id='input-reponse${i}' value='${newRecordArr[i].Response_Text}' class='form-control'></td>`;
+                     const response_options = newRecordArr[i].Field_Type.display_value;
+                     const resp_type = (response_options == "Multiple Choice" || response_options == "Expense" || response_options == "Consumption") ? select_tag : (response_options == "Number" || response_options == "Meter Reading") ? num_input : (response_options == "Text") ? text_input : "";
+                        tr_data = tr_data + resp_type;
                         tr_data += `<td><div class="image-field border ${newRecordArr[i].Image_Mandatory == "false" ? `border-secondary`: `border-danger`} rounded d-flex justify-content-around align-items-center">
                             <div class="upload text-center cursor-pointer"><label for="img${i}" class="cursor-pointer"><i class="bi bi-image"></i></label><input type="file" id="img${i}" accept="image/*" class="d-none"></div>
                             <div class="capture h-100 text-center cursor-pointer">
@@ -623,10 +613,9 @@ ZOHO.CREATOR.init()
             for (let i = 1; i < tr_arr.length; i++) {
                 j++;
                 const img_mandat = tr_arr[i].getElementsByClassName(`img-man`)[0].textContent;
-                const checkImg = document.getElementById(`img${j}`);
-                const checkImg2 = document.getElementById(`img-capture${j}`);
+                const checkImg = document.getElementById(`img_prev${j}`);
                 if ( img_mandat == true || img_mandat == "true") {
-                    if (checkImg.value == "" && checkImg2.value == "") {
+                    if (checkImg.src == "") {
                         const task_name = tr_arr[i].getElementsByTagName("td")[2].textContent;
                         taskArr.push(task_name);
                         x++;
